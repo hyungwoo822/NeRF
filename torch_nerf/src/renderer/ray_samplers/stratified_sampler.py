@@ -78,7 +78,10 @@ class StratifiedSampler(RaySamplerBase):
         t_near = ray_bundle.nears.squeeze(-1)
         t_far = ray_bundle.fars.squeeze(-1)
 
-        t_result = self.map_t_to_euclidean(t_val, t_near[:, None], t_far[:, None])
+        t_result = torch.stack([
+        self.map_t_to_euclidean(t_val[i], t_near[i].item(), t_far[i].item())
+        for i in range(num_ray)
+        ])
         return t_result
 
 

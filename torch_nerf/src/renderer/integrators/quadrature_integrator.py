@@ -44,14 +44,6 @@ class QuadratureIntegrator(IntegratorBase):
         # TODO
         # HINT: Look up the documentation of 'torch.cumsum'.
     
-        alpha = 1.0 - torch.exp(-sigma * delta)  # [N, M]
-        accumulated = torch.cumsum(sigma * delta)
-        accumulated = torch.cat([torch.zero_like(accumulated[:, 0]), accumulated[:, :-1]], dim=-1)
-        transmittance = torch.exp(-accumulated)
-        weight = transmittance * alpha
-        result = torch.sum(weight[..., None] * radiance, dim=-1)
-        return result
-    
         # 1. Compute alpha (opacity) for each sample
         alpha = 1.0 - torch.exp(-sigma * delta)  # [N, M]
 
@@ -68,4 +60,12 @@ class QuadratureIntegrator(IntegratorBase):
         rgb = torch.sum(weights[..., None] * radiance, dim=1)  # [N, 3]
 
         return rgb, weights
-        
+
+
+        alpha = 1.0 - torch.exp(-sigma * delta)  # [N, M]
+        accumulated = torch.cumsum(sigma * delta, dim=-1)
+        accumulated = torch.cat([torch.zeros_like(accumulated[:, :1]), accumulated[:, :-1]], dim=-1)
+        transmittance = torch.exp(-accumulated)
+        weight = transmittance * alpha
+        result = torch.sum(weight[..., None] * radiance, dim=1)
+        return result.float(), weight.float()

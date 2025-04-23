@@ -35,26 +35,25 @@ class NeRF(nn.Module):
         super().__init__()
 
         # TODO
-        self.pos_dim = pos_dim
-        self.view_dir_dim = view_dir_dim
-        self.feat_dim = feat_dim
-
         self.layers = nn.ModuleList()
-        
         for i in range(8):
             if i == 4:
-                self.layers.append(nn.Linear(self.feat_dim + self.pos_dim, self.feat_dim))
+                self.layers.append(nn.Linear(feat_dim + pos_dim, feat_dim))
             elif i == 0:
-                self.layers.append(nn.Linear(self.pos_dim, self.feat_dim))
+                self.layers.append(nn.Linear(pos_dim, feat_dim))
             else:
                 self.layers.append(nn.Linear(feat_dim, feat_dim))
         self.relu = nn.ReLU()
 
+        # Density prediction head
         self.sigma_head = nn.Linear(feat_dim, 1)
 
-        self.feature_layer = nn.Linear(feat_dim + pos_dim, feat_dim)
+        # Feature to color head
+        self.feature_layer = nn.Linear(feat_dim, feat_dim)
         self.rgb_layer = nn.Sequential(
-            nn.Linear(feat_dim, feat_dim // 2), nn.ReLU(), nn.Linear(feat_dim // 2, 3)
+            nn.Linear(feat_dim + view_dir_dim, feat_dim // 2),
+            nn.ReLU(),
+            nn.Linear(feat_dim // 2, 3)
         )
 
     @jaxtyped
@@ -70,8 +69,11 @@ class NeRF(nn.Module):
             if i == 4:
                 x = torch.cat([x, pos], dim=-1)
             x = self.relu(self.layers[i](x))
-        density = self.sigma_head(x)
-        h = torch.cat([x, view_dir], dim=-1)
-        color = self.rgb_layer(self.feature_layer(h))
-        return density, color
-        
+
+        sigma = self.sigma_head(x)  # Density prediction
+        feat = self.feature_layer(x)
+
+        h = torch.cat([feat, view_dir], dim=-1)
+        rgb = self.rgb_layer(h)
+
+        return sigma, rgb
