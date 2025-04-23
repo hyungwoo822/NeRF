@@ -35,7 +35,27 @@ class NeRF(nn.Module):
         super().__init__()
 
         # TODO
-        raise NotImplementedError("Task 1")
+        self.pos_dim = pos_dim
+        self.view_dir_dim = view_dir_dim
+        self.feat_dim = feat_dim
+
+        self.layers = nn.ModuleList()
+        
+        for i in range(8):
+            if i == 4:
+                self.layers.append(nn.Linear(self.feat_dim + self.pos_dim, self.feat_dim))
+            elif i == 0:
+                self.layers.append(nn.Linear(self.pos_dim, self.feat_dim))
+            else:
+                self.layers.append(nn.Linear(feat_dim, feat_dim))
+        self.relu = nn.ReLU()
+
+        self.sigma_head = nn.Linear(feat_dim, 1)
+
+        self.feature_layer = nn.Linear(feat_dim + pos_dim, feat_dim)
+        self.rgb_layer = nn.Sequential(
+            nn.Linear(feat_dim, feat_dim // 2), nn.ReLU(), nn.Linear(feat_dim // 2, 3)
+        )
 
     @jaxtyped
     @typechecked
@@ -44,20 +64,14 @@ class NeRF(nn.Module):
         pos: Float[torch.Tensor, "num_sample pos_dim"],
         view_dir: Float[torch.Tensor, "num_sample view_dir_dim"],
     ) -> Tuple[Float[torch.Tensor, "num_sample 1"], Float[torch.Tensor, "num_sample 3"]]:
-        """
-        Predicts color and density.
-
-        Given sample point coordinates and view directions,
-        predict the corresponding radiance (RGB) and density (sigma).
-
-        Args:
-            pos: The positional encodings of sample points coordinates on rays.
-            view_dir: The positional encodings of ray directions.
-
-        Returns:
-            sigma: The density predictions evaluated at the given sample points.
-            radiance: The radiance predictions evaluated at the given sample points.
-        """
-
         # TODO
-        raise NotImplementedError("Task 1")
+        x = pos
+        for i in range(8):
+            if i == 4:
+                x = torch.cat([x, pos], dim=-1)
+            x = self.relu(self.layers[i](x))
+        density = self.sigma_head(x)
+        h = torch.cat([x, view_dir], dim=-1)
+        color = self.rgb_layer(self.feature_layer(h))
+        return density, color
+        
